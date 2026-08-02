@@ -4,21 +4,29 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ayush Beekum — Computer Scientist · Beekum Garage</title>
-  <meta name="description" content="Ayush Beekum — final-year Computer Science student at the University of Pretoria. Full-stack developer, computer vision and HPC. Scroll through the pixel garage.">
+  <meta name="description" content="Ayush Beekum — final-year Computer Science student at the University of Pretoria. Full-stack developer, computer vision and HPC. Step into the garage, rendered live in WebGL.">
   <meta property="og:title" content="Ayush Beekum — Beekum Garage">
-  <meta property="og:description" content="A pixel JDM workshop portfolio. Full-stack · computer vision · HPC · one Nissan 200SX S13.">
+  <meta property="og:description" content="A real-time 3D JDM workshop portfolio. Full-stack · computer vision · HPC · one Nissan 200SX S13.">
   <meta property="og:image" content="https://ayush-b99.github.io/assets/og.png">
   <meta property="og:url" content="https://ayush-b99.github.io/">
   <meta property="og:type" content="website">
   <link rel="icon" type="image/png" href="assets/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Overpass:wght@400;600;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+    }
+  }
+  </script>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <canvas id="world" aria-hidden="true"></canvas>
-  <div class="scanlines" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
   <div class="vignette" aria-hidden="true"></div>
 
   <!-- HUD -->
@@ -50,7 +58,7 @@
           <a class="btn" href="mailto:ayush.beekum@gmail.com">EMAIL ME</a>
           <a class="btn ghost" href="https://github.com/Ayush-B99" target="_blank" rel="noopener">GITHUB</a>
         </div>
-        <div class="scroll-hint">SCROLL — THE LITTLE GUY KNOWS THE WAY<span class="arrow"></span></div>
+        <div class="scroll-hint">SCROLL — THE CAMERA KNOWS THE WAY<span class="arrow"></span></div>
       </div>
     </section>
 
@@ -227,19 +235,17 @@
           <a class="btn ghost" href="https://github.com/Ayush-B99" target="_blank" rel="noopener">GITHUB</a>
           <a class="btn ghost" href="https://www.linkedin.com/in/ayushbeekum-6423862b4" target="_blank" rel="noopener">LINKEDIN</a>
         </div>
-        <p class="muted" style="margin-top:18px">Tip: click the S13 back in the garage bay —
-           the pop-ups work. And try the moon button, top right.</p>
+        <p class="muted" style="margin-top:18px">Tip: click the S13 anywhere in the scene —
+           the pop-ups still work. And try the moon button, top right.</p>
       </div>
     </section>
   </main>
 
   <footer>
-    © 2026 Ayush Beekum · every pixel on this page is drawn in code, no image files ·
+    © 2026 Ayush Beekum · every surface in this scene is generated in code — no 3D models, no image files ·
     <a href="https://github.com/Ayush-B99/Ayush-B99.github.io" target="_blank" rel="noopener">view source</a>
   </footer>
 
-  <script src="js/sprites.js" defer></script>
-  <script src="js/scene.js" defer></script>
-  <script src="js/main.js" defer></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
