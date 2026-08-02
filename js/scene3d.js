@@ -49,6 +49,9 @@ const CAR_URLS = [
 /* Set to a hex (e.g. 0x8f1626) to repaint the body panels; null = original. */
 const PAINT_OVERRIDE = null;
 const DAIS_RPM = 1.45;               // turntable speed, revolutions / minute
+/* The car is auto-fitted to this overall length in metres, whatever units
+   the source model happens to use. A real S13 is about 4.5 m.              */
+const CAR_LENGTH = 4.4;
 const PIANO_SCALE = 1.12;            // slightly over-life-size = easier to tap
 
 const THEMES = {
@@ -784,7 +787,7 @@ export function createGarage(canvas, opts = {}) {
     buildMirrorDais();
   }
 
-  console.info('BEEKUM GARAGE · build 7 — sky lounge');
+  console.info('BEEKUM GARAGE · build 8 — sky lounge');
   const gl = new GLTFLoader();
 
   function setupCar(car) {
@@ -847,6 +850,23 @@ export function createGarage(canvas, opts = {}) {
       }
       m.needsUpdate = true;
     });
+    /* --- scale normalisation ------------------------------------------------
+       This GLB carries a 0.01 unit scale on its FBX root node, so it arrives
+       ~4.5 cm long: on the dais, but invisibly small. Rather than hard-code a
+       multiplier, measure it and fit it to a real S13 footprint. Any model,
+       any units, always ends up the right size on the platform.            */
+    box3.setFromObject(car);
+    const rawSize = box3.getSize(new THREE.Vector3());
+    const span = Math.max(rawSize.x, rawSize.y, rawSize.z);
+    if (span > 0 && isFinite(span)) {
+      const fit = CAR_LENGTH / span;
+      car.scale.multiplyScalar(fit);
+      car.updateMatrixWorld(true);
+      console.info('BEEKUM GARAGE · car measured ' + span.toFixed(3) +
+        ' units long → scaled ×' + fit.toFixed(1) + ' to ' + CAR_LENGTH + ' m');
+    } else {
+      console.warn('BEEKUM GARAGE — could not measure the car; leaving scale as-is.');
+    }
     box3.setFromObject(car);
     const c = box3.getCenter(v3.clone());
     car.position.set(-c.x, 0.171 - box3.min.y, -c.z);
