@@ -75,9 +75,24 @@ http://localhost:8000. (Modules + the import map need http://, not file://.)
   electric adds a tanh waveshaper for drive). A generated impulse response
   gives everything a small hall. Keyboard map: A-row = naturals, W-row =
   sharps, `Z`/`X` shift octaves.
-- **Post** — ACES tone mapping + UnrealBloom. On capable machines the floor
-  gets a true planar reflection (Reflector) under semi-transparent marble;
-  smaller/slower devices get a glossy env-mapped floor instead.
+- **Realistic look, cheap frame** — three tricks carry the image:
+  1. a *studio environment*: a black void with huge soft light panels,
+     PMREM'd per theme, which rolls long highlights across the bodywork
+     the way a photo studio does;
+  2. a *mirror world*: the dais, car, colonnade and city are cloned,
+     y-flipped and parked under a translucent marble floor — a true planar
+     reflection for a few extra draw calls instead of re-rendering the
+     whole scene every frame like a `Reflector` does;
+  3. *contact shadows*: soft dark blobs ground the car and every prop.
+- **Sketchfab material surgery** — the GLB ships with half its materials
+  flagged alpha-BLEND (chassis, engine, interior), which three.js can't
+  depth-sort per-mesh, so untreated it renders scrambled. On load the
+  scene forces those opaque (keeping real cut-outs via `alphaTest`),
+  rebuilds the glass as simple transparency (no transmission pass), hides
+  zero-alpha export leftovers, and sets everything double-sided so thin
+  panels don't get backface-culled into holes.
+- **Post** — ACES tone mapping + UnrealBloom, pixel ratio capped at 1.5
+  (visually identical on retina, roughly half the fragment work).
 - **Repaint the car** — set `PAINT_OVERRIDE` at the top of `js/scene3d.js`
   to a hex (e.g. `0x8f1626`) to recolour the body-paint materials; `null`
   keeps the original finish.

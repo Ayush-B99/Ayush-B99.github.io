@@ -11,9 +11,7 @@
    ========================================================================== */
 
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { Reflector } from 'three/addons/objects/Reflector.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -74,10 +72,12 @@ export function createGarage(canvas, opts = {}) {
   const renderer = new THREE.WebGLRenderer({
     canvas, antialias: HIGH, powerPreference: 'high-performance'
   });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, HIGH ? 2 : 1.25));
+  /* DPR is the #1 fragment cost on retina laptops — 1.5 is visually
+     indistinguishable here and roughly halves the pixel work vs 2.0        */
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, HIGH ? 1.5 : 1.2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.12;
+  renderer.toneMappingExposure = 1.22;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -86,9 +86,39 @@ export function createGarage(canvas, opts = {}) {
 
   const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 90);
 
+  /* ---- studio environment — what makes car paint look real -------------- *
+   * A black void with a few huge soft light panels. PMREM'd, this gives    *
+   * long rolling highlights across the bodywork like a photo studio.       *
+   * Two variants, tinted per theme.                                        */
   const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environmentIntensity = 0.35;
+  function studioEnv(tint) {
+    const env = new THREE.Scene();
+    env.background = new THREE.Color(0x000000);
+    const panel = (w, h, x, y, z, ry, rx, color, i) => {
+      const m = new THREE.Mesh(
+        new THREE.PlaneGeometry(w, h),
+        new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide })
+      );
+      m.material.color.multiplyScalar(i);
+      m.position.set(x, y, z);
+      m.rotation.set(rx, ry, 0);
+      env.add(m);
+    };
+    /* big overhead softbox strip — the main "showroom ceiling" highlight   */
+    panel(14, 3.2, 0, 7.5, 0, 0, Math.PI / 2, 0xffffff, 5.5);
+    /* two angled side strips, one cool one tinted                           */
+    panel(3.0, 9, -9, 3.4, 0, Math.PI / 2.4, 0, 0xcfd8ff, 2.6);
+    panel(3.0, 9, 9, 3.4, 0, -Math.PI / 2.4, 0, tint, 2.2);
+    /* long low warm kick — candlelight bounce                               */
+    panel(16, 1.2, 0, 0.7, 8.5, Math.PI, 0, 0xffc9a0, 1.1);
+    /* faint floor bounce so undersides aren't pitch black                   */
+    panel(12, 12, 0, -1.5, 0, 0, -Math.PI / 2, 0x1a1a24, 1.0);
+    return pmrem.fromScene(env, 0.06).texture;
+  }
+  const ENV = { day: studioEnv(0xff9aa8), night: studioEnv(0xb9a0ff) };
+  pmrem.dispose();
+  scene.environment = ENV.night;
+  scene.environmentIntensity = 1.0;
 
   /* ------------------------------ helpers -------------------------------- */
 
@@ -288,24 +318,19 @@ export function createGarage(canvas, opts = {}) {
   const root = new THREE.Group();
   scene.add(root);
 
-  /* floor — mirror under sheer black marble */
-  let reflector = null;
-  if (HIGH) {
-    reflector = new Reflector(new THREE.PlaneGeometry(ROOM.w, ROOM.d), {
-      textureWidth: 1024, textureHeight: 1024, color: 0x9099aa, clipBias: 0.003
-    });
-    reflector.rotation.x = -Math.PI / 2;
-    reflector.position.y = -0.002;
-    root.add(reflector);
-  }
+  /* floor — translucent black marble. A mirrored clone of the set sits
+     UNDER this plane (see MIRROR WORLD below): a real planar reflection
+     for the cost of a few extra draw calls, instead of the old Reflector
+     which re-rendered the entire scene every frame.                        */
   const marble = mat.phys({
     map: marbleTexture(),
     color: 0xffffff,
-    roughness: 0.32, metalness: 0.1,
-    clearcoat: 0.8, clearcoatRoughness: 0.22,
-    transparent: HIGH, opacity: HIGH ? 0.86 : 1
+    roughness: 0.3, metalness: 0.1,
+    clearcoat: 0.9, clearcoatRoughness: 0.18,
+    transparent: true, opacity: 0.8
   });
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.w, ROOM.d), marble);
+  floor.renderOrder = 1;                 // after the mirror world beneath it
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   root.add(floor);
@@ -362,28 +387,32 @@ export function createGarage(canvas, opts = {}) {
     return g;
   }
 
+  const colonnade = new THREE.Group();   // everything here gets mirrored
+  root.add(colonnade);
+
   const archGeo = archFrame(bayW - 0.5, 5.4, 1.05);
   for (let i = 0; i < BAYS; i++) {
     const cx = -ROOM.w / 2 + bayW * (i + 0.5);
     const glass = new THREE.Mesh(new THREE.PlaneGeometry(bayW - 0.5, ROOM.h - 0.2), glassMat);
+    glass.renderOrder = 4;
     glass.position.set(cx, ROOM.h / 2 - 0.1, glassZ);
     root.add(glass);
     const frame = new THREE.Mesh(archGeo, IRON);
     frame.position.set(cx, 0, glassZ - 0.045);
-    root.add(frame);
+    colonnade.add(frame);
     /* mullion cross bars */
     const bar = new THREE.Mesh(new THREE.BoxGeometry(bayW - 0.5, 0.05, 0.05), IRON);
     bar.position.set(cx, 2.15, glassZ);
-    root.add(bar);
+    colonnade.add(bar);
     /* columns between bays */
     if (i < BAYS - 1) {
       const col = new THREE.Mesh(new THREE.BoxGeometry(0.34, ROOM.h, 0.34), BLACK_GLOSS);
       col.position.set(cx + bayW / 2, ROOM.h / 2, glassZ + 0.1);
       col.castShadow = true;
-      root.add(col);
+      colonnade.add(col);
       const cap = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 0.5), IRON);
       cap.position.set(cx + bayW / 2, ROOM.h - 0.06, glassZ + 0.1);
-      root.add(cap);
+      colonnade.add(cap);
     }
   }
 
@@ -406,23 +435,26 @@ export function createGarage(canvas, opts = {}) {
     rose.userData.rim = rim;
     rose.add(rim);
     rose.position.set(0, 4.55, glassZ + 0.02);
-    root.add(rose);
+    colonnade.add(rose);
   }
 
   /* city + moon beyond the glass */
+  const backdrop = new THREE.Group();    // also mirrored — city lights in the floor
+  root.add(backdrop);
   const cityMats = {
     warm: mat.flat({ map: cityTexture(true), fog: false }),
     cool: mat.flat({ map: cityTexture(false), fog: false })
   };
   const city = new THREE.Mesh(new THREE.PlaneGeometry(70, 17), cityMats.cool);
+  city.name = 'city';
   city.position.set(0, 5.2, glassZ - 7.5);
-  root.add(city);
+  backdrop.add(city);
   const moon = new THREE.Mesh(
     new THREE.CircleGeometry(0.95, 40),
     mat.flat({ color: 0xdfe8ff, fog: false, transparent: true, opacity: 0.95 })
   );
   moon.position.set(0, 4.55, glassZ - 7.2);
-  root.add(moon);
+  backdrop.add(moon);
   const moonHalo = new THREE.Mesh(
     new THREE.CircleGeometry(2.1, 40),
     mat.flat({
@@ -431,7 +463,7 @@ export function createGarage(canvas, opts = {}) {
     })
   );
   moonHalo.position.copy(moon.position); moonHalo.position.z -= 0.05;
-  root.add(moonHalo);
+  backdrop.add(moonHalo);
 
   /* neon cove strips along the ceiling edges                                */
   const coveMat = mat.std({
@@ -474,6 +506,17 @@ export function createGarage(canvas, opts = {}) {
   key.shadow.mapSize.set(HIGH ? 2048 : 1024, HIGH ? 2048 : 1024);
   key.shadow.bias = -0.0004;
   root.add(key, key.target);
+
+  /* two rim kickers raking the car from behind — edge highlights that
+     separate the bodywork from the dark glass                              */
+  const rimA = new THREE.SpotLight(0x9fb4ff, 70, 18, 0.62, 0.65, 1.8);
+  rimA.position.set(-6.2, 4.7, -6.8);
+  rimA.target.position.set(0, 0.85, 0);
+  root.add(rimA, rimA.target);
+  const rimB = new THREE.SpotLight(0xffd0ba, 46, 18, 0.62, 0.65, 1.8);
+  rimB.position.set(6.6, 4.3, -5.6);
+  rimB.target.position.set(0, 0.85, 0);
+  root.add(rimB, rimB.target);
 
   const loungeSpot = new THREE.SpotLight(0xffe6c8, 60, 14, 0.55, 0.5, 1.7);
   loungeSpot.position.set(-9.4, ROOM.h - 0.3, 3.3);
@@ -544,7 +587,7 @@ export function createGarage(canvas, opts = {}) {
     root.add(g);
     return g;
   }
-  chandelier(0, 4.85, 0, 1.0, 12);
+  const chand0 = chandelier(0, 4.85, 0, 1.0, 12);
   chandelier(-9.6, 4.6, 3.4, 0.72, 8);
   chandelier(9.0, 4.7, 4.5, 0.72, 8);
 
@@ -556,6 +599,7 @@ export function createGarage(canvas, opts = {}) {
   root.add(dais);
 
   const plat = new THREE.Group();
+  plat.name = 'plat';
   dais.add(plat);
   {
     const side = new THREE.Mesh(
@@ -590,11 +634,13 @@ export function createGarage(canvas, opts = {}) {
   /* ------------------------------- the car -------------------------------- */
 
   const carRig = new THREE.Group();       // rotates with the platform
+  carRig.name = 'carRig';
   carRig.rotation.y = -0.55;
   plat.add(carRig);
 
   let carReady = false, carAppear = 0, carModel = null;
   const showGroup = new THREE.Group();     // underglow + beams, toggled
+  showGroup.name = 'showkit';
   showGroup.visible = false;
   carRig.add(showGroup);
   let glowPlane = null, glowLights = [], beamCones = [], beamSpots = [];
@@ -610,13 +656,14 @@ export function createGarage(canvas, opts = {}) {
       })
     );
     glowPlane.rotation.x = -Math.PI / 2;
-    glowPlane.position.y = 0.012;
+    glowPlane.renderOrder = 3;
+    glowPlane.position.y = 0.177;          // just above the dais top (0.171)
     showGroup.add(glowPlane);
     [[bb.min.x * 0.7, bb.min.z * 0.6], [bb.max.x * 0.7, bb.min.z * 0.6],
      [bb.min.x * 0.7, bb.max.z * 0.6], [bb.max.x * 0.7, bb.max.z * 0.6]
     ].forEach(([gx, gz]) => {
       const L = new THREE.PointLight(0x8a5cff, 6, 3.4, 2.2);
-      L.position.set(gx, 0.1, gz);
+      L.position.set(gx, 0.3, gz);
       showGroup.add(L); glowLights.push(L);
     });
     /* headlight beams from the nose */
@@ -628,12 +675,13 @@ export function createGarage(canvas, opts = {}) {
     });
     [-0.58, 0.58].forEach((bx) => {
       const cone = new THREE.Mesh(beamGeo, beamMat);
-      cone.position.set(bx, 0.62, frontZ + 2.55);
+      cone.renderOrder = 3;
+      cone.position.set(bx, 0.8, frontZ + 2.55);
       cone.rotation.x = -Math.PI / 2 + 0.06;
       showGroup.add(cone); beamCones.push(cone);
       const sp = new THREE.SpotLight(0xcfe0ff, 30, 9, 0.4, 0.5, 1.6);
-      sp.position.set(bx, 0.66, frontZ - 0.1);
-      sp.target.position.set(bx * 1.4, 0.15, frontZ + 7);
+      sp.position.set(bx, 0.84, frontZ - 0.1);
+      sp.target.position.set(bx * 1.4, 0.25, frontZ + 7);
       showGroup.add(sp, sp.target); beamSpots.push(sp);
     });
   }
@@ -663,27 +711,71 @@ export function createGarage(canvas, opts = {}) {
       new THREE.Vector3(-0.95, 0, -2.2), new THREE.Vector3(0.95, 1.2, 2.2)
     ));
     carReady = true; carAppear = 1;
+    buildMirrorDais();
   }
 
   const gl = new GLTFLoader();
   gl.load(CAR_URL, (g) => {
     const car = g.scene;
+    /* --- material surgery -------------------------------------------------
+       Sketchfab exports flag half these materials as alpha-BLEND (chassis,
+       engine, interior, decals). three.js sorts transparency per-mesh, so
+       left as-is the car renders scrambled: panels vanish, the cabin shows
+       through the body. Rules:
+         · factor-alpha 0 layers        → hidden (they're export leftovers)
+         · real glass                   → clean transparent, no transmission
+                                          (transmission = a whole extra
+                                          scene render per frame)
+         · everything else              → forced opaque; textures with real
+                                          cut-outs keep them via alphaTest
+         · every material               → DoubleSide, so thin panels don't
+                                          get backface-culled into holes    */
+    const seen = new Set();
     car.traverse((o) => {
       if (!o.isMesh) return;
       o.castShadow = true;
       o.receiveShadow = true;
       const m = o.material;
       if (!m) return;
-      m.envMapIntensity = 1.25;
-      if (m.name && m.name.includes('Glass')) m.depthWrite = false;
-      if (!HIGH && m.transmission > 0) {
-        m.transmission = 0; m.transparent = true;
-        m.opacity = Math.min(m.opacity, 0.4);
+      const nm = m.name || '';
+      if (m.opacity === 0) { o.visible = false; return; }   // dead layers
+      if (seen.has(m)) {
+        if (/Window|LightGlass|GlassOpaque/.test(nm)) o.renderOrder = 6;
+        return;
       }
-      if (PAINT_OVERRIDE != null && m.name && m.name.includes('CarPaint')) {
+      seen.add(m);
+      m.side = THREE.DoubleSide;
+      m.envMapIntensity = 1.5;
+      if ('transmission' in m && m.transmission > 0) m.transmission = 0;
+      if (/GlassOpaque_Mirror/.test(nm)) {
+        /* wing mirrors — just chrome */
+        m.transparent = false; m.depthWrite = true;
+        m.metalness = 1; m.roughness = 0.06;
+      } else if (/Window|LightGlass/.test(nm)) {
+        /* real glass: windows, light lenses */
+        m.transparent = true;
+        m.opacity = Math.max(0.22, Math.min(m.opacity || 0.3, 0.55));
+        m.depthWrite = false;
+        m.roughness = 0.04; m.metalness = 0;
+        m.envMapIntensity = 2.0;
+        o.renderOrder = 6;
+      } else if (m.transparent) {
+        /* everything Sketchfab wrongly marked BLEND → opaque (with cut-outs
+           preserved where the texture really carries them)                 */
+        m.transparent = false;
+        m.depthWrite = true;
+        m.opacity = 1;
+        if (m.map) m.alphaTest = 0.35;
+      }
+      if (/CarPaint/.test(nm) && 'clearcoat' in m && m.roughness < 0.5) {
+        m.clearcoat = 1; m.clearcoatRoughness = 0.07;
+        m.envMapIntensity = 1.7;
+      }
+      if (PAINT_OVERRIDE != null && nm.includes('CarPaint')) {
         m.color = new THREE.Color(PAINT_OVERRIDE);
         if ('clearcoat' in m) { m.clearcoat = 1; m.clearcoatRoughness = 0.12; }
       }
+      m.needsUpdate = true;
     });
     box3.setFromObject(car);
     const c = box3.getCenter(v3.clone());
@@ -695,8 +787,12 @@ export function createGarage(canvas, opts = {}) {
       new THREE.Vector3(box3.max.x - c.x, box3.max.y - box3.min.y, box3.max.z - c.z)
     );
     buildShowKit(bb);
+    const cb = aoBlob((bb.max.x - bb.min.x) * 1.5, (bb.max.z - bb.min.z) * 1.15, 0.6);
+    cb.position.y = 0.176;
+    carRig.add(cb);
     carRig.scale.setScalar(0.001);
     carReady = true;
+    buildMirrorDais();
   }, undefined, (err) => {
     console.warn('BEEKUM GARAGE — car model failed to load, using silhouette.', err);
     fallbackCar();
@@ -1216,6 +1312,7 @@ export function createGarage(canvas, opts = {}) {
       clearcoat: 1, side: THREE.DoubleSide, depthWrite: false
     });
     const gcase = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.85, 0.52), caseGlass);
+    gcase.renderOrder = 4;
     gcase.position.y = 1.34;
     g.add(gcase);
     const caseFrame = new THREE.Mesh(new THREE.BoxGeometry(1.86, 0.04, 0.56), IRON);
@@ -1333,9 +1430,79 @@ export function createGarage(canvas, opts = {}) {
       color: 0xbcb4d8, size: 0.014, transparent: true, opacity: 0.4,
       blending: THREE.AdditiveBlending, depthWrite: false
     }));
+    p.renderOrder = 2;
     root.add(p);
     return p;
   })();
+
+  /* ======================================================================== *
+   *  MIRROR WORLD — the floor reflection, done the cheap honest way          *
+   *  A y-flipped clone of the reflective-worthy set lives under the marble.  *
+   *  Perfect planar reflection, zero extra render passes.                    *
+   * ======================================================================== */
+
+  const mirrorRoot = new THREE.Group();
+  mirrorRoot.scale.y = -1;
+  mirrorRoot.position.y = -0.006;
+  root.add(mirrorRoot);
+
+  function intoMirror(obj) {
+    const c = obj.clone(true);
+    const strip = [];
+    c.traverse((o) => {
+      if (o.isLight || o.isCamera) strip.push(o);
+      else if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; o.renderOrder = 0; }
+    });
+    strip.forEach((L) => { if (L.parent) L.parent.remove(L); });
+    mirrorRoot.add(c);
+    return c;
+  }
+
+  intoMirror(colonnade);
+  let mCity = null;
+  if (HIGH) {
+    const mBackdrop = intoMirror(backdrop);
+    mCity = mBackdrop.getObjectByName('city');
+    intoMirror(chand0);
+  }
+
+  let mPlat = null, mCarRig = null, mShow = null, mirrorDaisBuilt = false;
+  function buildMirrorDais() {
+    if (mirrorDaisBuilt) return;
+    mirrorDaisBuilt = true;
+    const md = intoMirror(dais);
+    mPlat = md.getObjectByName('plat');
+    mCarRig = md.getObjectByName('carRig');
+    mShow = md.getObjectByName('showkit');
+  }
+
+  /* ---- contact shadows: soft dark blobs that ground every prop ----------- */
+
+  const blobTex = underglowTexture();
+  function aoBlob(w, l, opacity = 0.5) {
+    const m = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, l),
+      mat.flat({ map: blobTex, color: 0x000000, transparent: true, opacity, depthWrite: false })
+    );
+    m.rotation.x = -Math.PI / 2;
+    m.position.y = 0.008;
+    return m;
+  }
+  {
+    const under = (parent, w, l, x, z, op = 0.5) => {
+      const b = aoBlob(w, l, op);
+      b.position.x = x; b.position.z = z;
+      parent.add(b);
+    };
+    under(lounge, 3.6, 3.4, 0.15, -0.7, 0.5);       // piano + bench
+    under(lounge, 0.85, 0.85, -1.62, 0.75, 0.5);    // electric stand
+    under(lounge, 0.85, 0.85, 1.7, 0.93, 0.5);      // acoustic stand
+    under(lounge, 0.7, 0.6, -2.25, 0.3, 0.45);      // amp
+    under(root, 1.1, 1.1, 7.8, -3.7, 0.55);         // drone plinth
+    under(root, 3.6, 3.4, 8.6, 7.6, 0.45);          // front desk
+    under(root, 1.1, 2.4, -16.55, 7.7, 0.5);        // vitrine
+    under(root, 0.4, 0.4, ROOM.w / 2 - 0.14, -4.9, 0.5); // extinguisher
+  }
 
   /* ======================================================================== *
    *  AUDIO — every sound is synthesised on the fly                           *
@@ -1475,6 +1642,9 @@ export function createGarage(canvas, opts = {}) {
   function setTheme(t) {
     themeName = (t === 'day') ? 'day' : 'night';
     const T = THEMES[themeName];
+    scene.environment = ENV[themeName];
+    rimA.color.setHex(themeName === 'night' ? 0x9fb4ff : 0xffb4a4);
+    rimB.color.setHex(themeName === 'night' ? 0xc9b2ff : 0xff9d8a);
     scene.fog = new THREE.FogExp2(T.fog, T.fogD);
     scene.background = new THREE.Color(T.fog);
     hemi.color.setHex(T.hemiSky);
@@ -1489,6 +1659,7 @@ export function createGarage(canvas, opts = {}) {
     signMat.color.setHex(T.sign);
     signLight.color.setHex(T.sign);
     city.material = cityMats[T.city];
+    if (mCity) mCity.material = cityMats[T.city];
     moon.material.color.setHex(T.moon);
     flames.forEach((f) => {
       if (f.light) { f.light.color.setHex(T.candle); f.light.intensity = T.candleI; }
@@ -1594,7 +1765,7 @@ export function createGarage(canvas, opts = {}) {
 
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.72, 0.55, 0.74);
+  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.62, 0.5, 0.8);
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
 
@@ -1640,6 +1811,11 @@ export function createGarage(canvas, opts = {}) {
 
     /* dais rotation */
     if (!reduced) plat.rotation.y += (DAIS_RPM / 60) * TAU * dts;
+    if (mPlat) {
+      mPlat.rotation.y = plat.rotation.y;
+      mCarRig.scale.copy(carRig.scale);
+      if (mShow) mShow.visible = showGroup.visible;
+    }
 
     /* car arrival pop */
     if (carReady && carAppear < 1) {
