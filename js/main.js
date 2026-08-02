@@ -114,7 +114,7 @@ if (!webglOK()) {
   const fontsReady = (document.fonts && document.fonts.ready)
     ? document.fonts.ready.catch(() => {})
     : Promise.resolve();
-  Promise.all([import('./scene3d.js?v=4'), fontsReady]).then(([{ createGarage }]) => {
+  Promise.all([import('./scene3d.js?v=5'), fontsReady]).then(([{ createGarage }]) => {
     const garage = createGarage(canvas, { quality, reduced, theme });
 
     function resize() {

@@ -32,7 +32,16 @@ const SHOTS = [
   { pos: [9.6, 3.7, 9.8],    look: [-2.2, 1.3, -2.4] }    // 6 contact — the whole chapel
 ];
 
-const CAR_URL = 'assets/models/rb_s13.glb';
+/* The loader tries these in order and skips anything under 100 KB (a
+   placeholder or LFS pointer, not a model). Drop the Sketchfab GLB into
+   assets/models/ under EITHER name and it will be found.                    */
+const CAR_URLS = [
+  'assets/models/rb_s13.glb',
+  'assets/models/2013_rocket_bunny_v2_-_nissan_s13_240sx__180sx.glb',
+  'rb_s13.glb',
+  '2013_rocket_bunny_v2_-_nissan_s13_240sx__180sx.glb',
+  'assets/rb_s13.glb'
+];
 /* Set to a hex (e.g. 0x8f1626) to repaint the body panels; null = original. */
 const PAINT_OVERRIDE = null;
 const DAIS_RPM = 1.45;               // turntable speed, revolutions / minute
@@ -87,7 +96,7 @@ export function createGarage(canvas, opts = {}) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x030308);
 
-  const camera = new THREE.PerspectiveCamera(45, 1, 0.24, 90);
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.3, 130);
 
   /* ---- studio environment — what makes car paint look real -------------- *
    * A black void with a few huge soft light panels. PMREM'd, this gives    *
@@ -210,9 +219,9 @@ export function createGarage(canvas, opts = {}) {
     const [c, x] = cnv(W, H);
     const g = x.createLinearGradient(0, 0, 0, H);
     if (mode === 'day') {           /* sunset, seen from above the clouds */
-      g.addColorStop(0, '#150a2c'); g.addColorStop(0.42, '#3c1234');
-      g.addColorStop(0.7, '#8a2c30'); g.addColorStop(0.88, '#e07038');
-      g.addColorStop(1, '#ffb768');
+      g.addColorStop(0, '#150a2c'); g.addColorStop(0.42, '#38122f');
+      g.addColorStop(0.7, '#7d2a2e'); g.addColorStop(0.88, '#c4632f');
+      g.addColorStop(1, '#dd9350');
     } else {                        /* clean high-altitude night */
       g.addColorStop(0, '#010107'); g.addColorStop(0.55, '#070a1c');
       g.addColorStop(1, '#12142e');
@@ -443,11 +452,11 @@ export function createGarage(canvas, opts = {}) {
   root.add(backdrop);
   const skyTexs = { night: skyTexture('night'), day: skyTexture('day') };
   const sky = new THREE.Mesh(
-    new THREE.PlaneGeometry(170, 46),
+    new THREE.PlaneGeometry(120, 40),
     mat.flat({ map: skyTexs.night, fog: false })
   );
   sky.name = 'sky';
-  sky.position.set(0, 7.2, glassZ - 26);
+  sky.position.set(0, 6.4, glassZ - 22);
   backdrop.add(sky);
 
   const orb = new THREE.Mesh(new THREE.CircleGeometry(1.2, 48),
@@ -465,15 +474,21 @@ export function createGarage(canvas, opts = {}) {
   const cloudTex = cloudTexture();
   cloudTex.wrapS = cloudTex.wrapT = THREE.RepeatWrapping;
   cloudTex.repeat.set(2.6, 1.5);
+  /* The deck sits BELOW eye level, so without a clip it would slide under
+     the (translucent) marble floor and fight the mirror world — that was
+     the light-mode flicker. This plane keeps it strictly beyond the glass. */
+  const outsideOnly = new THREE.Plane(new THREE.Vector3(0, 0, -1), glassZ - 0.5);
   const cloudDeck = new THREE.Mesh(
-    new THREE.PlaneGeometry(240, 110),
+    new THREE.PlaneGeometry(150, 62),
     mat.flat({
       map: cloudTex, color: 0x2c3450, fog: false,
-      transparent: true, opacity: 0.96, depthWrite: false
+      transparent: true, opacity: 0.96, depthWrite: false,
+      clippingPlanes: [outsideOnly]
     })
   );
   cloudDeck.rotation.x = -Math.PI / 2;
-  cloudDeck.position.set(0, -3.4, glassZ - 51);
+  cloudDeck.position.set(0, -3.2, glassZ - 34);
+  cloudDeck.renderOrder = -1;
   root.add(cloudDeck);                    // deliberately NOT mirrored
 
   /* neon cove strips along the ceiling edges                                */
@@ -763,11 +778,10 @@ export function createGarage(canvas, opts = {}) {
     buildMirrorDais();
   }
 
-  console.info('BEEKUM GARAGE · build 4 — sky lounge');
+  console.info('BEEKUM GARAGE · build 5 — sky lounge');
   const gl = new GLTFLoader();
-  gl.load(CAR_URL, (g) => {
-    console.info('BEEKUM GARAGE · S13 loaded from', CAR_URL);
-    const car = g.scene;
+
+  function setupCar(car) {
     /* --- material surgery -------------------------------------------------
        Sketchfab exports flag half these materials as alpha-BLEND (chassis,
        engine, interior, decals). three.js sorts transparency per-mesh, so
@@ -843,10 +857,34 @@ export function createGarage(canvas, opts = {}) {
     carRig.scale.setScalar(0.001);
     carReady = true;
     buildMirrorDais();
-  }, undefined, (err) => {
-    console.warn('BEEKUM GARAGE — could not load "' + CAR_URL + '" — is the GLB at exactly that path? Using the stand-in coupe.', err);
+  }
+
+  async function loadCar() {
+    for (const url of CAR_URLS) {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        const buf = await res.arrayBuffer();
+        if (buf.byteLength < 100000) {
+          console.warn('BEEKUM GARAGE — "' + url + '" is only ' + buf.byteLength +
+            ' bytes. That is a placeholder, not the model — skipping it.');
+          continue;
+        }
+        const g = await new Promise((ok, bad) => gl.parse(buf, '', ok, bad));
+        console.info('BEEKUM GARAGE · S13 loaded from ' + url + ' (' +
+          (buf.byteLength / 1048576).toFixed(1) + ' MB)');
+        setupCar(g.scene || (g.scenes && g.scenes[0]));
+        return;
+      } catch (e) {
+        console.warn('BEEKUM GARAGE — could not use "' + url + '":', e);
+      }
+    }
+    console.warn('BEEKUM GARAGE — no car model found. Upload the Sketchfab GLB to ' +
+      'assets/models/ under either name: rb_s13.glb or the original long filename. ' +
+      'Using the stand-in coupe meanwhile.');
     fallbackCar();
-  });
+  }
+  loadCar();
 
   /* ======================================================================== *
    *  MUSIC LOUNGE — grand piano + two guitars, all playable                  *
@@ -1862,7 +1900,7 @@ export function createGarage(canvas, opts = {}) {
 
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.62, 0.5, 0.8);
+  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.58, 0.5, 0.9);
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
 
