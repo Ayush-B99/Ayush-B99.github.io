@@ -34,13 +34,17 @@ const SHOTS = [
 
 /* The loader tries these in order and skips anything under 100 KB (a
    placeholder or LFS pointer, not a model). Drop the Sketchfab GLB into
-   assets/models/ under EITHER name and it will be found.                    */
+   assets/models/ under ANY of these names and it will be found.            */
 const CAR_URLS = [
   'assets/models/rb_s13.glb',
+  'assets/models/rb_13.glb',
+  'assets/models/car.glb',
   'assets/models/2013_rocket_bunny_v2_-_nissan_s13_240sx__180sx.glb',
+  'assets/rb_s13.glb',
+  'assets/rb_13.glb',
   'rb_s13.glb',
-  '2013_rocket_bunny_v2_-_nissan_s13_240sx__180sx.glb',
-  'assets/rb_s13.glb'
+  'rb_13.glb',
+  '2013_rocket_bunny_v2_-_nissan_s13_240sx__180sx.glb'
 ];
 /* Set to a hex (e.g. 0x8f1626) to repaint the body panels; null = original. */
 const PAINT_OVERRIDE = null;
@@ -125,7 +129,9 @@ export function createGarage(canvas, opts = {}) {
     panel(16, 1.2, 0, 0.7, 8.5, Math.PI, 0, 0xffc9a0, 1.1);
     /* faint floor bounce so undersides aren't pitch black                   */
     panel(12, 12, 0, -1.5, 0, 0, -Math.PI / 2, 0x1a1a24, 1.0);
-    return pmrem.fromScene(env, 0.06).texture;
+    /* sigma must stay <= ~0.04 — beyond that three.js clips the blur and
+       warns ("requested 30 samples when the maximum is set to 20")         */
+    return pmrem.fromScene(env, 0.035).texture;
   }
   const ENV = { day: studioEnv(0xff9aa8), night: studioEnv(0xb9a0ff) };
   pmrem.dispose();
@@ -778,7 +784,7 @@ export function createGarage(canvas, opts = {}) {
     buildMirrorDais();
   }
 
-  console.info('BEEKUM GARAGE · build 5 — sky lounge');
+  console.info('BEEKUM GARAGE · build 7 — sky lounge');
   const gl = new GLTFLoader();
 
   function setupCar(car) {

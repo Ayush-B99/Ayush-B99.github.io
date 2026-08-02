@@ -1,7 +1,7 @@
-Put the Sketchfab GLB here (about 7.3 MB).
-Either filename works:
-  rb_s13.glb
-  2013_rocket_bunny_v2_-_nissan_s13_240sx__180sx.glb
+Put the Sketchfab GLB here (7,309,548 bytes).
+Any of these names work: rb_s13.glb, rb_13.glb, car.glb,
+or the original long Sketchfab filename.
 
-Verify it uploaded with:  ls -la assets/models/
-A file of a few bytes means the upload failed.
+IMPORTANT: it must be UPLOADED as a binary file.
+Creating a file by this name in the GitHub web editor makes an
+empty 2-byte file, which will NOT work.
