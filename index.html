@@ -53,7 +53,7 @@
   .hero { position: relative; overflow: hidden; min-height: 100vh;
     background: radial-gradient(60% 50% at 50% 30%, #f7f8fa 0%, rgba(247,248,250,0) 100%), linear-gradient(180deg, #e3e5ea 0%, var(--bg) 60%, #e4e6eb 100%);
     display: grid; grid-template-columns: minmax(0, 1fr) var(--stage-w) minmax(0, 1fr); gap: 3vw; align-items: center; padding: 110px 5vw 0; }
-  .hero-copy { max-width: 440px; justify-self: end; }
+  .hero-copy { grid-column: 1; max-width: 440px; justify-self: end; }
   .tag { display: inline-block; background: var(--ink); color: #fff; font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 999px; margin-bottom: 22px; }
   h1 { margin: 0 0 18px; font-size: clamp(44px, 4.6vw, 68px); line-height: 1; letter-spacing: -.03em; }
   h1 .thin { display: block; font-weight: 300; }
@@ -75,10 +75,8 @@
   .loader i { display: block; height: 2px; background: var(--line); border-radius: 2px; margin-top: 8px; overflow: hidden; }
   .loader i::after { content: ""; display: block; height: 100%; width: var(--p, 0%); background: var(--red); transition: width .2s; }
   .loader.done { opacity: 0; pointer-events: none; }
-  .hint { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); font-size: 12px; color: var(--ink-2); white-space: nowrap; opacity: 0; transition: opacity .6s; }
-  .hint.show { opacity: 1; }
 
-  .hero-aside { justify-self: start; width: min(340px, 100%); display: grid; gap: 14px; }
+  .hero-aside { grid-column: 3; justify-self: start; width: min(340px, 100%); display: grid; gap: 14px; }
   .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .tile { background: var(--card); border-radius: var(--radius); padding: 20px 18px 16px; box-shadow: 0 10px 30px rgba(20,25,35,.07); }
   .tile .n { font-size: 22px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; }
@@ -172,10 +170,10 @@
   @media (max-width: 1000px) {
     :root { --stage-w: 100%; }
     .hero { grid-template-columns: 1fr; gap: 10px; padding: 96px 6vw 40px; }
+    .hero-copy, .hero-aside { grid-column: auto; }
     .hero-copy { justify-self: start; max-width: 520px; }
     .stage { position: relative; inset: auto; height: min(78vw, 560px); }
     .loader { bottom: 20px; }
-    .hint { display: none; }
     .hero-aside { width: 100%; max-width: 520px; }
     .two { grid-template-columns: 1fr; gap: 24px; }
     section { padding: 70px 6vw; }
@@ -232,7 +230,6 @@
     <div class="stage" id="stage" aria-label="A red Rocket Bunny Nissan 180SX, seen from above">
       <canvas id="scene"></canvas>
       <div class="loader" id="loader">Loading the car<i></i></div>
-      <div class="hint" id="hint">Move your mouse to look around</div>
     </div>
 
     <aside class="hero-aside">
@@ -514,7 +511,6 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 const stage = document.getElementById('stage');
 const canvas = document.getElementById('scene');
 const loader = document.getElementById('loader');
-const hint = document.getElementById('hint');
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const PAINT = 0xc8102e;
 
@@ -534,7 +530,7 @@ scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 60);
 let camScale = 1;
 const CAM = new THREE.Vector3(0, 12.2, -3.4);
-const LOOK = new THREE.Vector3(0, 0.3, 0.9);
+const LOOK = new THREE.Vector3(0, 0.3, 0.45);
 camera.position.copy(CAM);
 camera.lookAt(LOOK);
 
@@ -625,7 +621,7 @@ function setLights(h, t) {
 }
 
 function start() {
-  if (reduce) { S.z = 0; S.parked = true; setLights(2.2, 0.15); dirty = true; render(); hint.classList.add('show'); return; }
+  if (reduce) { S.z = 0; S.parked = true; setLights(2.2, 0.15); dirty = true; render(); return; }
   S.t0 = performance.now();
   requestAnimationFrame(loop);
 }
@@ -639,7 +635,7 @@ function loop(now) {
     const t = Math.min(1, (now - S.t0) / 2400);
     S.z = -9 + 9 * easeOut(t);
     setLights(0, t > 0.55 ? 1.6 : 0.15);          // brake lights as it slows
-    if (t >= 1) { S.parked = true; setTimeout(() => { setLights(2.2, 0.15); dirty = true; hint.classList.add('show'); }, 350); }
+    if (t >= 1) { S.parked = true; setTimeout(() => { setLights(2.2, 0.15); dirty = true; }, 350); }
   } else {
     // scrolling drives it away up the road
     const target = scrollDrive;
