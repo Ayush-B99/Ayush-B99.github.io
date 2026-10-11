@@ -593,10 +593,11 @@ new GLTFLoader().load('assets/models/rb_s13.glb',
       } else if (/LightGlassNormal_Red/.test(n)) {
         m.emissive = new THREE.Color(0xff2a2a); m.emissiveIntensity = 0.15; tailMats.push(m);
       }
-      if (/Wheel|rim/i.test(n)) {
+      if (/Wheel|rim/i.test(n) && !/Trim/i.test(n)) {
         o.geometry.computeBoundingBox();
         const s = o.geometry.boundingBox.getSize(new THREE.Vector3());
-        if (s.y > 0.4 && s.z > 0.4) wheels.push(o);   // tyres and rims, not callipers
+        // a tyre or rim: round in Y/Z, thin in X; this skips callipers and body trim
+        if (s.y > 0.4 && s.z > 0.4 && s.x < 0.4) wheels.push(o);
       }
     });
     body.add(car);
