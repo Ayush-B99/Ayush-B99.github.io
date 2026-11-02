@@ -1,28 +1,15 @@
 # ayush-b99.github.io
 
-Portfolio site: React + Vite, three.js (black water with the car's reflection, Rocket Bunny S13 GLB), Motion, and a few React Bits components.
+Personal portfolio: a Rocket Bunny 180SX in a night street, rendered live with Babylon.js (PBR materials, HDR image-based lighting, planar glass-floor reflections, post-processing).
 
-## Run locally
+- `index.html` — the page: content, layout, chrome.
+- `public/js/site.js` — the 3D world, the lighting sets and the page logic (plain script, no build step needed).
+- `public/assets/models/rb_s13.glb` — the car (quantized + WebP, 2 MB). [2013 Rocket Bunny V2 Nissan S13](https://sketchfab.com/3d-models/2013-rocket-bunny-v2-nissan-s13-240sx-180sx-51eae60217934736887dcf016cde8903) by Ddiaz Design, CC BY-NC-SA 4.0.
 
-```bash
+Default set is `night` (`window.START_SET` in `index.html`). Other sets are in the Set picker; to ship only one, delete the `.setpick` element and the picker code in `site.js`.
+
+```sh
 npm install
-npm run dev
+npm run dev      # http://localhost:5173
+npm run build    # -> dist, deployed by .github/workflows/deploy.yml on push to main
 ```
-
-Open the URL it prints (usually http://localhost:5173).
-
-## Deploy
-
-Pushing to `main` runs `.github/workflows/deploy.yml`, which builds the site and publishes `dist/` to GitHub Pages.
-
-One-time setting: in the repo on GitHub go to **Settings → Pages → Build and deployment → Source** and choose **GitHub Actions**.
-
-## Where things are
-
-- `src/Scene.jsx` — the three.js scene: water, lights, the car's entrance and parking spot. `PAINT` is the body colour; `CAM`/`LOOK` frame the camera; `YAW1` is the parked angle; `parkX`/`parkZ` in `resize()` place the car.
-- `src/App.jsx` — all the page content and sections.
-- `src/Builds.jsx` — the one-project-at-a-time stack.
-- `src/bits/` — React Bits components (MIT), copied in as-is.
-- `public/assets/` — model, CV, favicon, OG image, water normal map.
-
-Car model: 2013 Rocket Bunny V2 Nissan S13 by Ddiaz Design, CC BY-NC-SA 4.0.

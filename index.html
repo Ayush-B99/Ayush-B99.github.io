@@ -1,24 +1,387 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Ayush Beekum — software engineer, Pretoria</title>
-  <meta name="description" content="Ayush Beekum: final-year computer science at the University of Pretoria. Backend systems, computer vision, high-performance computing. Graduating 2026.">
-  <meta property="og:title" content="Ayush Beekum">
-  <meta property="og:description" content="Backend systems, computer vision and HPC. Final-year CS at the University of Pretoria, graduating 2026.">
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://ayush-b99.github.io/">
-  <meta property="og:image" content="https://ayush-b99.github.io/assets/og.png">
-  <meta name="theme-color" content="#000000">
-  <link rel="icon" href="/assets/favicon.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="preload" href="/assets/models/rb_s13.glb" as="fetch" crossorigin>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ayush Beekum — Backend, computer vision, HPC</title>
+<meta name="description" content="Final-year computer science at the University of Pretoria. Backend systems, computer-vision pipelines and the occasional compute cluster. A Rocket Bunny 180SX on weekends.">
+<link rel="icon" href="/assets/favicon.png">
+<meta property="og:title" content="Ayush Beekum">
+<meta property="og:image" content="https://ayush-b99.github.io/assets/og.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #050607;
+  --ink: #EDEEF0;
+  --ink-2: #9CA3AD;
+  --ink-3: #5E6672;
+  --line: rgba(255,255,255,.10);
+  --glass: rgba(7,8,11,.58);
+  --red: #C8102E;
+  --red-hi: #FF4B5C;
+  --amber: #F2C777;
+  --font: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #050607; } }
+:root[data-theme="dark"] { --bg: #050607; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+*, *::before, *::after { box-sizing: inherit; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+body { font-family: var(--font); font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; overflow-x: hidden; cursor: none; }
+@media (hover: none), (pointer: coarse) { body { cursor: auto; } }
+a { color: inherit; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: inherit; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--red-hi); outline-offset: 3px; border-radius: 4px; }
+::selection { background: var(--red); color: #fff; }
+p { margin: 0 0 1em; max-width: 56ch; }
+
+/* ---------- scene ---------- */
+#gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; touch-action: pan-y; outline: none; }
+.nogl #gl { display: none; }
+
+/* ---------- cursor ---------- */
+.cursor { position: fixed; left: 0; top: 0; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.9); pointer-events: none; z-index: 60; mix-blend-mode: difference; transition: width .18s, height .18s, margin .18s, opacity .3s; opacity: 0; }
+.cursor.on { opacity: 1; }
+.cursor.hot { width: 42px; height: 42px; margin: -21px 0 0 -21px; }
+.cursor.grab { width: 30px; height: 30px; margin: -15px 0 0 -15px; border-style: dashed; }
+@media (hover: none), (pointer: coarse) { .cursor { display: none; } }
+
+/* ---------- loader ---------- */
+.loader { position: fixed; inset: 0; z-index: 50; background: #000; display: grid; place-items: center; transition: opacity .9s ease; }
+.loader.gone { opacity: 0; pointer-events: none; }
+.loader-inner { width: min(360px, 78vw); }
+.loader .wm { font-variation-settings: "wdth" 118, "wght" 650; letter-spacing: .14em; font-size: 12px; color: var(--ink-2); margin-bottom: 44px; }
+.loader .msg { display: flex; justify-content: space-between; font-size: 13px; color: var(--ink-2); margin-bottom: 10px; }
+.loader .bar { height: 1px; background: rgba(255,255,255,.12); position: relative; overflow: hidden; }
+.loader .bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--amber); transition: width .35s ease; box-shadow: 0 0 12px var(--amber); }
+.loader .err { color: var(--ink-2); font-size: 14px; margin-top: 24px; display: none; }
+
+/* ---------- chrome ---------- */
+.top { position: fixed; inset: 0 0 auto 0; z-index: 30; display: flex; align-items: center; justify-content: space-between; padding: calc(22px + env(safe-area-inset-top, 0px)) 4.5vw 18px; pointer-events: none; }
+.top a { pointer-events: auto; text-decoration: none; }
+.wordmark { font-variation-settings: "wdth" 120, "wght" 650; letter-spacing: .06em; font-size: 13px; text-transform: none; }
+.top nav { display: flex; gap: 28px; font-size: 13px; color: var(--ink-2); }
+.top nav a:hover { color: var(--ink); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+
+.rail { position: fixed; left: 4.5vw; top: 50%; transform: translateY(-50%); z-index: 30; display: flex; flex-direction: column; gap: 14px; font-size: 11.5px; color: var(--ink-3); letter-spacing: .04em; pointer-events: none; }
+.rail a { pointer-events: auto; text-decoration: none; display: flex; align-items: center; gap: 12px; transition: color .3s; }
+.rail a i { width: 18px; height: 1px; background: currentColor; transition: width .3s; }
+.rail a.on { color: var(--ink); }
+.rail a.on i { width: 34px; background: var(--amber); }
+.rail a:hover { color: var(--ink-2); }
+
+.hud { position: fixed; right: 4.5vw; bottom: calc(26px + env(safe-area-inset-bottom, 0px)); z-index: 30; display: flex; flex-direction: column; align-items: flex-end; gap: 14px; pointer-events: none; }
+.hud > * { pointer-events: auto; }
+.swatches { display: flex; align-items: center; gap: 10px; }
+.swatches span { font-size: 11.5px; color: var(--ink-3); letter-spacing: .04em; margin-right: 4px; }
+.swatches button { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.18); background: var(--c); position: relative; transition: transform .2s, border-color .2s; }
+.swatches button:hover { transform: scale(1.15); }
+.swatches button[aria-pressed="true"] { border-color: #fff; transform: scale(1.15); }
+.setpick { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--ink-2); padding: 7px 10px 7px 14px; border: 1px solid var(--line); border-radius: 999px; background: rgba(5,6,7,.5); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.setpick span { color: var(--ink-3); letter-spacing: .04em; font-size: 11.5px; }
+.setpick select { font: inherit; font-weight: 600; color: var(--ink); background: transparent; border: 0; padding: 4px 2px; cursor: inherit; outline: none; max-width: 180px; }
+.setpick select option { background: #0b0c10; color: var(--ink); }
+.setpick em { font-style: normal; color: var(--ink-3); font-size: 11.5px; max-width: 170px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 900px) { .setpick em { display: none; } .setpick select { max-width: 130px; } }
+.toggle { display: inline-flex; align-items: center; gap: 10px; font-size: 12px; color: var(--ink-2); padding: 9px 14px; border: 1px solid var(--line); border-radius: 999px; background: rgba(5,6,7,.5); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); transition: color .2s, border-color .2s; }
+.toggle b { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); box-shadow: none; transition: background .3s, box-shadow .3s; }
+.toggle[aria-pressed="true"] { color: var(--ink); }
+.toggle[aria-pressed="true"] b { background: var(--amber); box-shadow: 0 0 10px var(--amber); }
+.toggle:hover { border-color: rgba(255,255,255,.3); }
+
+.cue { position: fixed; left: 4.5vw; bottom: calc(26px + env(safe-area-inset-bottom, 0px)); z-index: 30; font-size: 12px; color: var(--ink-3); display: flex; align-items: center; gap: 12px; opacity: 0; transition: opacity .8s; pointer-events: none; }
+.cue.show { opacity: 1; }
+.cue i { display: block; width: 1px; height: 28px; background: linear-gradient(var(--ink-3), transparent); animation: drip 1.8s ease-in-out infinite; }
+@keyframes drip { 0% { transform: scaleY(0); transform-origin: top; } 50% { transform: scaleY(1); transform-origin: top; } 51% { transform-origin: bottom; } 100% { transform: scaleY(0); transform-origin: bottom; } }
+
+/* ---------- chapters ---------- */
+main { position: relative; z-index: 1; pointer-events: none; }
+.ch { height: 175vh; position: relative; }
+.ch.hero { height: 135vh; }
+.ch.last { height: 130vh; }
+.pin { position: sticky; top: 0; height: 100vh; display: grid; align-items: center; padding: 0 4.5vw; }
+.panel { pointer-events: auto; width: min(480px, 92vw); justify-self: end; opacity: 0; transform: translate3d(0, 22px, 0); will-change: opacity, transform; }
+.panel.l { justify-self: start; }
+.panel.glass { background: var(--glass); border: 1px solid var(--line); border-top-color: rgba(255,255,255,.22); border-radius: 18px; padding: clamp(24px, 3vw, 36px); backdrop-filter: blur(18px) saturate(1.1); -webkit-backdrop-filter: blur(18px) saturate(1.1); box-shadow: 0 30px 80px rgba(0,0,0,.45); }
+.ch.hero .pin { align-items: center; }
+.hero .panel { width: min(640px, 92vw); }
+
+.kicker { font-size: 12px; color: var(--ink-2); letter-spacing: .02em; margin-bottom: 18px; }
+h1 { margin: 0 0 22px; font-size: clamp(54px, 7.4vw, 112px); line-height: .92; letter-spacing: -.035em; font-variation-settings: "wdth" 115, "wght" 640; }
+h1 .thin { display: block; font-variation-settings: "wdth" 100, "wght" 300; letter-spacing: -.02em; }
+h2 { margin: 0 0 14px; font-size: clamp(28px, 3vw, 40px); line-height: 1.02; letter-spacing: -.03em; font-variation-settings: "wdth" 112, "wght" 600; }
+.lead { font-size: clamp(16px, 1.3vw, 18px); color: var(--ink-2); max-width: 46ch; }
+.hero .lead { color: #c9ced6; }
+.meta { font-size: 13px; color: var(--ink-2); margin-bottom: 1.2em; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 26px; }
+.btn { display: inline-flex; align-items: center; gap: 10px; background: var(--ink); color: #0a0b0d; text-decoration: none; font-weight: 600; font-size: 14px; padding: 13px 22px; border-radius: 999px; transition: background .15s, color .15s, transform .15s; }
+.btn:hover { background: var(--red); color: #fff; }
+.btn.ghost { background: transparent; color: var(--ink); border: 1px solid rgba(255,255,255,.24); }
+.btn.ghost:hover { border-color: var(--ink); background: transparent; color: var(--ink); }
+.stats { display: flex; gap: 28px; flex-wrap: wrap; margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--line); }
+.stats .n { font-size: 24px; font-variation-settings: "wdth" 112, "wght" 600; letter-spacing: -.02em; line-height: 1.1; }
+.stats .l { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+
+.seg { display: inline-flex; background: rgba(255,255,255,.05); border: 1px solid var(--line); border-radius: 999px; padding: 3px; margin-bottom: 18px; }
+.seg button { padding: 8px 15px; border-radius: 999px; font-weight: 600; font-size: 13px; color: var(--ink-2); transition: color .2s, background .2s; }
+.seg button[aria-selected="true"] { background: var(--ink); color: #0a0b0d; }
+.facts { margin: 18px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 8px 18px; font-size: 14px; padding-top: 18px; border-top: 1px solid var(--line); }
+.facts dt { color: var(--ink-2); } .facts dd { margin: 0; }
+
+.rows { border-top: 1px solid var(--line); margin-top: 8px; }
+.row { border-bottom: 1px solid var(--line); }
+.row-head { width: 100%; display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 16px; padding: 13px 0; text-align: left; font-weight: 600; font-size: 15.5px; letter-spacing: -.01em; color: var(--ink-2); transition: color .25s; }
+.row-head:hover, .row.open .row-head { color: var(--ink); }
+.row-head .when { font-size: 12px; font-weight: 400; color: var(--ink-3); }
+.row-head .plus { font-weight: 300; font-size: 20px; color: var(--ink-3); transition: transform .25s; }
+.row.open .row-head .plus { transform: rotate(45deg); }
+.row-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .45s cubic-bezier(.2,.8,.2,1); }
+.row.open .row-body { grid-template-rows: 1fr; }
+.row-body > div { overflow: hidden; }
+.row-body p { font-size: 14px; color: var(--ink-2); margin: 0 0 12px; max-width: none; }
+.row-body .tech { font-size: 12.5px; color: var(--ink-3); margin-bottom: 14px; }
+.row-body a { font-weight: 600; font-size: 13.5px; text-decoration: none; display: inline-block; margin-bottom: 14px; }
+.row-body a:hover { color: var(--red-hi); }
+.clients { list-style: none; padding: 0; margin: 14px 0 0; display: flex; flex-wrap: wrap; gap: 8px 20px; font-weight: 500; font-size: 14px; }
+.clients a { text-decoration: none; border-bottom: 1px solid rgba(255,255,255,.22); }
+.clients a:hover { border-color: var(--red-hi); }
+
+.spec { display: grid; grid-template-columns: max-content 1fr; gap: 0 22px; border-top: 1px solid var(--line); font-size: 14px; }
+.spec dt { padding: 10px 0; color: var(--ink-2); border-bottom: 1px solid var(--line); white-space: nowrap; }
+.spec dd { margin: 0; padding: 10px 0; border-bottom: 1px solid var(--line); color: #d8dbe0; }
+
+.awards { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.awards li { padding: 14px 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 112px 1fr; gap: 16px; font-size: 14px; }
+.awards strong { font-weight: 600; letter-spacing: -.01em; color: var(--ink); }
+.awards span { color: var(--ink-2); }
+
+.links { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; margin-top: 22px; font-size: 14px; }
+.links a { text-decoration: none; border-bottom: 1px solid rgba(255,255,255,.22); }
+.links a.btn { border: 0; }
+.links a:not(.btn):hover { border-color: var(--red-hi); }
+.copied { font-size: 12px; color: var(--amber); min-width: 60px; }
+footer { position: relative; z-index: 1; padding: 40px 4.5vw calc(40px + env(safe-area-inset-bottom, 0px)); font-size: 12px; color: var(--ink-3); pointer-events: auto; }
+footer a { color: var(--ink-2); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 900px) {
+  .rail { display: none; }
+  .top nav { gap: 18px; font-size: 12px; }
+  .ch { height: 150vh; } .ch.hero { height: 125vh; }
+  .pin { align-items: end; padding-bottom: 150px; }
+  .panel, .panel.l, .hero .panel { justify-self: stretch; width: 100%; }
+  .panel.glass { padding: 22px; border-radius: 16px; }
+  h1 { font-size: clamp(50px, 15vw, 76px); }
+  .hud { right: 4.5vw; left: 4.5vw; flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); }
+  .cue { display: none; }
+  .awards li { grid-template-columns: 1fr; gap: 4px; }
+  .stats { gap: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cue i { animation: none; }
+  .loader { transition: none; }
+}
+.nogl .panel { opacity: 1 !important; transform: none !important; }
+.nogl .loader { display: none; }
+</style>
 </head>
 <body>
-  <div id="root"></div>
-  <script type="module" src="/src/main.jsx"></script>
+<canvas id="gl" aria-hidden="true"></canvas>
+<div class="cursor" id="cursor"></div>
+
+<div class="loader" id="loader" role="status" aria-live="polite">
+  <div class="loader-inner">
+    <div class="wm">AYUSH BEEKUM</div>
+    <div class="msg"><span id="ldmsg">Powering up the bay</span><span id="ldpct">0%</span></div>
+    <div class="bar"><i id="ldbar"></i></div>
+    <div class="err" id="lderr">This page needs WebGL to render the studio. The content below still works.</div>
+  </div>
+</div>
+
+<header class="top">
+  <a class="wordmark" href="#top">Ayush Beekum</a>
+  <nav aria-label="Site">
+    <a href="#work">Work</a><a href="#builds">Builds</a><a href="#spec">Spec</a><a href="#contact">Contact</a>
+  </nav>
+</header>
+
+<nav class="rail" id="rail" aria-label="Chapters">
+  <a href="#top" data-i="0"><i></i>Arrive</a>
+  <a href="#driver" data-i="1"><i></i>Driver</a>
+  <a href="#work" data-i="2"><i></i>Work</a>
+  <a href="#builds" data-i="3"><i></i>Builds</a>
+  <a href="#spec" data-i="4"><i></i>Spec sheet</a>
+  <a href="#recognition" data-i="5"><i></i>Recognition</a>
+  <a href="#contact" data-i="6"><i></i>Contact</a>
+</nav>
+
+<div class="hud" id="hud">
+  <label class="setpick"><span>Set</span><select id="setSel" aria-label="Lighting set"></select><em id="setBlurb"></em></label>
+  <div class="swatches" id="swatches" role="group" aria-label="Paint colour">
+    <span>Paint</span>
+    <button style="--c:#c8102e" data-hex="#c8102e" aria-label="Rocket Bunny red" aria-pressed="true"></button>
+    <button style="--c:#3b1f63" data-hex="#3b1f63" aria-label="Midnight purple" aria-pressed="false"></button>
+    <button style="--c:#1f63c4" data-hex="#1f63c4" aria-label="Bayside blue" aria-pressed="false"></button>
+    <button style="--c:#e9e6dd" data-hex="#e9e6dd" aria-label="Championship white" aria-pressed="false"></button>
+    <button style="--c:#4b4f55" data-hex="#4b4f55" aria-label="Gunmetal" aria-pressed="false"></button>
+  </div>
+  <button class="toggle" id="lightsBtn" aria-pressed="true"><b></b>Headlights</button>
+</div>
+<div class="cue" id="cue"><i></i><span id="cueTxt">Scroll to walk around the car. Drag to look.</span></div>
+
+<main id="top">
+  <section class="ch hero" data-ch="0">
+    <div class="pin">
+      <div class="panel" data-panel>
+        <div class="kicker">Final-year computer science, University of Pretoria</div>
+        <h1><span class="thin">Ayush</span>Beekum</h1>
+        <p class="lead">Backend systems, computer-vision pipelines and the occasional compute cluster. A Rocket Bunny 180SX on weekends. This is it, parked in the bay.</p>
+        <p class="meta">Graduating 2026. Open to graduate roles, Pretoria or remote.</p>
+        <div class="actions">
+          <a class="btn" href="mailto:ayush.beekum@gmail.com">Email me</a>
+          <a class="btn ghost" href="https://github.com/Ayush-B99">GitHub</a>
+          <a class="btn ghost" href="/assets/Ayush_Beekum_CV.pdf">CV</a>
+        </div>
+        <div class="stats">
+          <div><div class="n" data-count="270">0</div><div class="l">GitHub contributions</div></div>
+          <div><div class="n" data-count="37">0</div><div class="l">Pull requests merged</div></div>
+          <div><div class="n" data-count="5">0</div><div class="l">Client sites live</div></div>
+          <div><div class="n" data-count="2">0</div><div class="l">National results</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ch" data-ch="1" id="driver">
+    <div class="pin">
+      <div class="panel glass l" data-panel>
+        <h2>Who’s driving</h2>
+        <div class="seg" role="tablist" aria-label="About me">
+          <button role="tab" aria-selected="true" data-tab="eng">Engineer</button>
+          <button role="tab" aria-selected="false" data-tab="mus">Musician</button>
+          <button role="tab" aria-selected="false" data-tab="bld">Builder</button>
+        </div>
+        <p class="lead" id="aboutTxt">Two years shipping production websites for a digital agency while finishing a CS degree. Comfortable anywhere in the stack, happiest in backend systems, computer vision and high-performance computing.</p>
+        <dl class="facts">
+          <dt>Studying</dt><dd>BSc Computer Science, final year, University of Pretoria</dd>
+          <dt>Daily languages</dt><dd>Python, TypeScript, Java, C++</dd>
+          <dt>Focus</dt><dd>Backend, computer vision, HPC</dd>
+          <dt>Based in</dt><dd>Pretoria, South Africa</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <section class="ch" data-ch="2" id="work">
+    <div class="pin">
+      <div class="panel glass" data-panel>
+        <h2>Web developer, 4IR Digital</h2>
+        <p class="meta">Part-time, 2022 to present. Digital agency and cybersecurity services, Pretoria.</p>
+        <div class="rows" data-acc>
+          <div class="row open"><button class="row-head" aria-expanded="true"><span>Five client sites, end to end</span><span class="plus">+</span></button>
+            <div class="row-body"><div><p>Scope, quote, build, hosting and handover for five client websites. All of them are still in production today.</p></div></div></div>
+          <div class="row"><button class="row-head" aria-expanded="false"><span>A cybersecurity platform in vanilla HTML, CSS and JS</span><span class="plus">+</span></button>
+            <div class="row-body"><div><p>Bespoke components for a multi-page platform: canvas animations, scroll-linked sections, an interactive map of Africa and a modular service selector. No framework, no build step.</p></div></div></div>
+          <div class="row"><button class="row-head" aria-expanded="false"><span>Replacing site search with zero downtime</span><span class="plus">+</span></button>
+            <div class="row-body"><div><p>Swapped out a WordPress site-search subsystem, including a full data migration, without taking the site offline.</p></div></div></div>
+          <div class="row"><button class="row-head" aria-expanded="false"><span>A multi-day job that now takes under an hour</span><span class="plus">+</span></button>
+            <div class="row-body"><div><p>Automated WooCommerce catalogue and bulk price updates with Python scrapers and CSV pipelines.</p></div></div></div>
+        </div>
+        <ul class="clients">
+          <li><a href="https://webachutes.com">WebAchutes</a></li>
+          <li><a href="https://zidainvest.com">Zida Invest</a></li>
+          <li><a href="https://jarrodwaberski.com">Jarrod Waberski</a></li>
+          <li><a href="https://perpetualservices.co.za">Perpetual Services</a></li>
+          <li><a href="https://rylogroup.co.za">Rylo Group</a></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="ch" data-ch="3" id="builds">
+    <div class="pin">
+      <div class="panel glass l" data-panel>
+        <h2>Things I’ve built</h2>
+        <div class="rows" data-acc>
+          <div class="row open"><button class="row-head" aria-expanded="true"><span>Gesture-based drone control</span><span class="when">2026</span></button>
+            <div class="row-body"><div><p class="tech">COS 301 capstone, Team Codex Merchants. Python, FastAPI, React, TypeScript, MediaPipe, AirSim, Docker</p><p>Pilot a drone with bare hands on a standard webcam. I built the computer-vision pipeline (MediaPipe landmarks, rule-based and ML recognisers, a temporal stabiliser, an async WebSocket stream) and the calibration subsystem: a session state machine with REST and WebSocket endpoints, plus a gate that blocks uncalibrated flight commands.</p><a href="https://github.com/COS301-SE-2026/Gesture-Based-Drone-Control">See the repository</a></div></div></div>
+          <div class="row"><button class="row-head" aria-expanded="false"><span>Universal Acceptance validator</span><span class="when">2026</span></button>
+            <div class="row-body"><div><p class="tech">Registry.Africa hackathon at UP. Won Best Validator. Python standard library, IDN and Punycode, DNS</p><p>A reference email and domain validator that fixes the “three-character TLD” bug locking .africa, .capetown and .joburg addresses out of South African portals. 100% on the competition suite with standard-library Python only: live PSL and IANA root-zone lookups, full Unicode and Punycode, RFC-compliant local parts and sub-addressing.</p></div></div></div>
+          <div class="row"><button class="row-head" aria-expanded="false"><span>CHPC Student Cluster Competition</span><span class="when">2026</span></button>
+            <div class="row-body"><div><p class="tech">Team UPtime, national finalist. Linux, OpenMPI, Slurm, Terraform, Ansible, Prometheus</p><p>Specified two competing cluster architectures, an R650k baseline at about 8.8 TFLOPS and an EPYC/H100 build at about 100 TFLOPS, with full cost, power and performance justification. Ran HPL on OpenStack to roughly 1,098 GFLOPS with OpenBLAS and profiled the BLAS library as the next lever.</p></div></div></div>
+          <div class="row"><button class="row-head" aria-expanded="false"><span>Price comparison platform</span><span class="when">2025</span></button>
+            <div class="row-body"><div><p class="tech">COS 221. MySQL, PHP, JavaScript</p><p>Normalised MySQL database with real retail data, a PHP REST API and a responsive JS frontend.</p><a href="https://github.com/ShavirV/COS-221-Assignment-5">See the repository</a></div></div></div>
+          <div class="row"><button class="row-head" aria-expanded="false"><span>Plant nursery simulator</span><span class="when">2025</span></button>
+            <div class="row-body"><div><p class="tech">COS 214. C++, UML, unit testing</p><p>C++ simulation built around Gang of Four patterns, with UML, unit tests and documentation.</p><a href="https://github.com/Ayush-B99/COS-214-Final-Project">See the repository</a></div></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ch" data-ch="4" id="spec">
+    <div class="pin">
+      <div class="panel glass" data-panel>
+        <h2>Spec sheet</h2>
+        <p class="meta">What I work with, by system.</p>
+        <dl class="spec">
+          <dt>Languages</dt><dd>Python, TypeScript, JavaScript, Java, C++, C#, PHP, SQL, R, Assembly</dd>
+          <dt>Frontend</dt><dd>React, Next.js, Angular, HTML, CSS, Tailwind, Three.js, Babylon.js</dd>
+          <dt>Backend</dt><dd>FastAPI, Node.js, NestJS, Django, Spring Boot, REST design, WebSockets</dd>
+          <dt>Data</dt><dd>PostgreSQL, MySQL, MariaDB, database design</dd>
+          <dt>ML and vision</dt><dd>MediaPipe, PyTorch, OpenCV, neural networks, genetic algorithms</dd>
+          <dt>DevOps and HPC</dt><dd>Git, GitHub Actions, Docker, Terraform, Ansible, CircleCI, Linux, Slurm, OpenMPI</dd>
+          <dt>Testing and tools</dt><dd>pytest, Jest, JUnit, Postman, WordPress, WooCommerce, Figma, Unity, Blender</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <section class="ch" data-ch="5" id="recognition">
+    <div class="pin">
+      <div class="panel glass l" data-panel>
+        <h2>Recognition</h2>
+        <ul class="awards">
+          <li><strong>Best Validator</strong><span>Universal Acceptance Hackathon, Registry.Africa at the University of Pretoria, July 2026. Perfect score on the competition test suite.</span></li>
+          <li><strong>National finalist</strong><span>CHPC Student Cluster Competition 2026, Team UPtime, representing the University of Pretoria.</span></li>
+          <li><strong>Open source</strong><span>270+ contributions and 37 pull requests across 9 repositories.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="ch last" data-ch="6" id="contact">
+    <div class="pin">
+      <div class="panel glass" data-panel>
+        <h2>Let’s talk</h2>
+        <p class="lead">Graduating in 2026 and looking for graduate software roles in backend, computer vision or HPC. Based in Pretoria, happy to work remotely.</p>
+        <div class="links">
+          <a class="btn" href="mailto:ayush.beekum@gmail.com">Email me</a>
+          <button class="btn ghost" id="copyBtn" type="button">Copy address</button>
+          <span class="copied" id="copied"></span>
+        </div>
+        <div class="links">
+          <a href="/assets/Ayush_Beekum_CV.pdf">Download CV</a>
+          <a href="https://github.com/Ayush-B99">GitHub</a>
+          <a href="https://www.linkedin.com/in/ayushbeekum-6423862b4">LinkedIn</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+<footer>
+  © 2026 Ayush Beekum. Car: <a href="https://sketchfab.com/3d-models/2013-rocket-bunny-v2-nissan-s13-240sx-180sx-51eae60217934736887dcf016cde8903">2013 Rocket Bunny V2 Nissan S13</a> by <a href="https://sketchfab.com/ddiaz-design">Ddiaz Design</a>, CC BY-NC-SA 4.0. Rendered live with Babylon.js, physically based materials and an HDR studio environment. <a href="https://github.com/Ayush-B99/Ayush-B99.github.io">Source</a>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/babylonjs@9.30.0/babylon.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/babylonjs-loaders@9.30.0/babylonjs.loaders.min.js"></script>
+<script>window.MODEL_URL = '/assets/models/rb_s13.glb'; window.START_SET = 'night';</script>
+<script src="/js/site.js"></script>
 </body>
 </html>
